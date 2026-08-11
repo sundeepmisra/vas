@@ -20,5 +20,9 @@ dev = ["pytest>=8.3,<9", "httpx>=0.28,<1", "ruff>=0.9,<1"]
 line-length = 100
 target-version = "py312"
 
+[tool.setuptools.packages.find]
+include = ["packages*", "services*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
