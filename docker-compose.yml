@@ -1,0 +1,38 @@
+services:
+  api:
+    build: .
+    environment:
+      VASILIA_DATABASE_URL: postgresql+asyncpg://vasilia:vasilia@postgres:5432/vasilia
+      VASILIA_EVENT_BROKER: redpanda:9092
+      VASILIA_IDENTITY_ISSUER: http://keycloak:8080/realms/vasilia
+    ports: ["8000:8000"]
+    depends_on: [postgres, redpanda, keycloak]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vasilia
+      POSTGRES_PASSWORD: vasilia
+      POSTGRES_DB: vasilia
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+
+  redpanda:
+    image: redpandadata/redpanda:v24.3.6
+    command: ["redpanda", "start", "--overprovisioned", "--smp", "1", "--memory", "1G", "--reserve-memory", "0M", "--node-id", "0", "--check=false"]
+    ports: ["9092:9092"]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: ["start-dev", "--http-port=8080"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports: ["8080:8080"]
+
+volumes:
+  postgres_data:
