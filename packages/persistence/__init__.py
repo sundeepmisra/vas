@@ -1,3 +1,1 @@
-from .base import Base
-
-__all__ = ["Base"]
+"""Persistence package; submodules are imported explicitly by runtime components."""

@@ -170,3 +170,44 @@ AWS deployment manifests and infrastructure-as-code are intentionally deferred u
 - `infra`: local and future deployment configuration
 
 All state-changing operations must pass through a capability and produce an auditable domain event via the transactional outbox.
+
+## Test commands
+
+Unit tests do not require Docker:
+
+```bash
+python -m pip install -e '.[dev]'
+pytest tests/unit
+```
+
+Integration tests require Docker Desktop and the Compose stack:
+
+```bash
+docker compose up --build -d
+pytest tests/integration -m integration
+docker compose down
+```
+
+The integration suite is being expanded alongside PostgreSQL repositories, RLS policies, Keycloak authentication, MinIO storage, and the outbox publisher. A test run is only considered complete when both the unit and integration commands pass.
+
+## CSV-based onboarding
+
+CSV onboarding supports two modes:
+
+- `ORGANIZATION_STRUCTURE`: imports organization units, unit types, parent relationships, descriptions, and manager references.
+- `PEOPLE_AND_MEMBERSHIP`: imports people, employee types, contact fields, unit assignments, manager references, locations, and presence status.
+
+The intended flow is:
+
+1. Upload the CSV with an idempotency key.
+2. Store the source artifact in S3-compatible object storage (MinIO locally, S3 in AWS).
+3. Parse headers and sample rows asynchronously.
+4. Map columns to Vasilia fields, using AI providers behind the model gateway where enabled.
+5. Validate all rows without changing authoritative data.
+6. Store row/column issues and present a preview.
+7. Apply fixes and revalidate.
+8. Convert valid rows into governed capability invocations.
+9. Execute dependencies in order, recording per-row success/failure.
+10. Write audit records and transactional outbox events in the same database transactions.
+
+Imports are resumable and idempotent: the import execution ID and row number form the capability idempotency key. Partial failures do not discard successful rows.

@@ -1,3 +1,5 @@
+"""Authoritative tenant, organization, outbox, and audit persistence models."""
+
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -9,10 +11,12 @@ from .base import Base
 
 
 def now() -> datetime:
+    """Return the current timezone-aware UTC timestamp for database defaults."""
     return datetime.now(timezone.utc)
 
 
 class Tenant(Base):
+    """Control-plane tenant and lifecycle record."""
     __tablename__ = "tenant"
     tenant_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -22,6 +26,7 @@ class Tenant(Base):
 
 
 class Organization(Base):
+    """Tenant-owned organization with an independently selectable data placement."""
     __tablename__ = "organization"
     __table_args__ = (UniqueConstraint("tenant_id", "vasilia_org_number"),)
     organization_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -36,6 +41,7 @@ class Organization(Base):
 
 
 class OutboxEvent(Base):
+    """Durable event pending publication to the Kafka-compatible broker."""
     __tablename__ = "outbox_event"
     event_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenant.tenant_id"), nullable=False)
@@ -48,6 +54,7 @@ class OutboxEvent(Base):
 
 
 class AuditRecord(Base):
+    """Immutable record of a governed capability execution."""
     __tablename__ = "audit_record"
     audit_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenant.tenant_id"), nullable=False)
