@@ -1,6 +1,6 @@
 """Versioned event contracts shared by capabilities, outbox, and consumers."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -13,7 +13,7 @@ class EventEnvelope(BaseModel):
     event_id: UUID = Field(default_factory=uuid4)
     event_type: str
     event_version: int = 1
-    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     tenant_id: str
     actor_id: str
     actor_type: str = "user"

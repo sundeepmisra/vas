@@ -77,6 +77,15 @@ Expected health response:
 
 The event endpoint demonstrates the versioned Kafka-compatible envelope, including tenant, actor, correlation, causation, classification, and payload fields.
 
+Authenticated identity verification is available at:
+
+```text
+GET /api/v1/auth/me
+Authorization: Bearer <Keycloak access token>
+```
+
+The endpoint validates the token signature through the Keycloak realm JWKS endpoint, checks the issuer, extracts the actor and tenant claims, and rejects tokens without tenant context. A valid tenant token returns the normalized subject, tenant ID, role, and scopes.
+
 ## Database migrations
 
 With PostgreSQL running, install the project dependencies and run:
@@ -196,13 +205,15 @@ All state-changing operations must pass through a capability and produce an audi
 Unit tests do not require Docker:
 
 ```bash
+source .venv/bin/activate
 python -m pip install -e '.[dev]'
-pytest tests/unit
+python -m pytest tests/unit -q
 ```
 
 Integration tests require Docker Desktop, the Compose stack, and a migrated database:
 
 ```bash
+source .venv/bin/activate
 docker compose up --build -d
 alembic upgrade head
 python -m pytest tests/integration -m integration -q
@@ -218,6 +229,8 @@ python -m compileall -q services packages migrations
 ruff check .
 ```
 
+The current unit suite contains 10 tests. The latest verified result is `10 passed`, and Ruff currently reports `All checks passed`.
+
 ## Authentication and authorization
 
 Keycloak is the local OIDC provider. The platform expects a validated JWT with at least:
@@ -228,7 +241,7 @@ Keycloak is the local OIDC provider. The platform expects a validated JWT with a
 - `scope`: optional space-separated scopes
 - `iss`: configured Keycloak issuer
 
-JWT claim mapping utilities are in `services/platform_api/auth.py`. Platform-admin flows and tenant-data flows must remain separate; a platform administrator cannot be used as a tenant-data actor. Production deployments should validate Keycloak JWKS public keys rather than use development signing secrets.
+JWT claim mapping utilities are in `services/platform_api/auth.py`, and the verification endpoint is in `services/platform_api/main.py`. Platform-admin flows and tenant-data flows must remain separate; a platform administrator cannot be used as a tenant-data actor. Production deployments validate Keycloak JWKS public keys rather than use development signing secrets.
 
 ## Tenant and organization placement
 

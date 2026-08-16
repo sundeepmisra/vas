@@ -2,8 +2,6 @@
 
 import csv
 from io import TextIOBase
-from typing import Iterator
-
 
 REQUIRED_COLUMNS = {"name", "email", "department"}
 

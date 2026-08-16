@@ -1,9 +1,8 @@
 """Capability execution contracts for governed state-changing operations."""
 
 from dataclasses import dataclass, field
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeVar
 from uuid import UUID, uuid4
-
 
 InputT = TypeVar("InputT")
 ResultT = TypeVar("ResultT")
@@ -20,7 +19,7 @@ class CapabilityContext:
 
 
 @dataclass(frozen=True)
-class CapabilityResult(Generic[ResultT]):
+class CapabilityResult[ResultT]:
     """Stable result envelope returned by every capability execution."""
 
     execution_id: UUID
@@ -31,7 +30,7 @@ class CapabilityResult(Generic[ResultT]):
     domain_errors: tuple[str, ...] = ()
 
 
-class Capability(Protocol[InputT, ResultT]):
+class Capability[InputT, ResultT](Protocol):
     """Protocol implemented by governed business capabilities."""
 
     name: str
@@ -46,7 +45,7 @@ class Capability(Protocol[InputT, ResultT]):
         ...
 
 
-async def execute_capability(capability: Capability[InputT, ResultT], value: InputT, context: CapabilityContext) -> CapabilityResult[ResultT]:
+async def execute_capability[InputT, ResultT](capability: Capability[InputT, ResultT], value: InputT, context: CapabilityContext) -> CapabilityResult[ResultT]:
     """Run validation before execution and return a governed result envelope."""
     errors = capability.validate(value)
     execution_id = uuid4()

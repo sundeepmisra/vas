@@ -3,8 +3,6 @@
 import asyncio
 from uuid import uuid4
 
-import pytest
-
 from packages.persistence.context import RequestContext, set_context
 from services.enterprise_foundation.repositories import TenantRepository
 
