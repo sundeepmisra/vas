@@ -229,9 +229,13 @@ python -m compileall -q services packages migrations
 ruff check .
 ```
 
-The current unit suite contains 10 tests. The latest verified result is `10 passed`, and Ruff currently reports `All checks passed`.
+The current unit suite contains 11 tests. The latest verified result is `11 passed`, and Ruff currently reports `All checks passed`.
 
 ## Authentication and authorization
+
+## Capability transaction boundary
+
+Capability execution is coordinated by `services/platform_api/execution.py`. A successful execution sets the PostgreSQL tenant context, applies the domain change, writes an audit record, writes outbox events, and commits those writes in one transaction. Validation failures do not enter the transaction, and execution errors roll the transaction back.
 
 Keycloak is the local OIDC provider. The platform expects a validated JWT with at least:
 
