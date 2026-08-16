@@ -4,7 +4,7 @@ Vasilia is a governed Enterprise AI Operating System. Phase 1 establishes the En
 
 ## Development status
 
-This repository contains the Phase 1 foundation scaffold. The current executable surface includes the health endpoint, event-contract example endpoint, tenant-context guard, and CSV parsing/validation logic. Persistence-backed domain APIs, migrations, authentication enforcement, and the full onboarding workflow are the next implementation slice.
+This repository contains the Phase 1 foundation implementation in progress. The current executable surface includes the health endpoint, event-contract endpoint, tenant context, SQLAlchemy persistence models, an initial Alembic migration, JWT claim validation utilities, capability contracts, repositories, and CSV parsing/validation logic. Full HTTP authentication middleware, repository integration tests, and the asynchronous import worker remain in progress.
 
 ## Prerequisites
 
@@ -57,6 +57,8 @@ docker compose down -v
 | Redpanda Kafka endpoint | `localhost:9092` | Local Kafka-compatible broker |
 | Redis | `localhost:6379` | Cache/runtime support |
 | Keycloak | `http://localhost:8080` | Local OIDC identity provider |
+| MinIO API | `http://localhost:9000` | S3-compatible object storage |
+| MinIO Console | `http://localhost:9001` | Local object-storage administration |
 
 Local Keycloak administrator credentials are `admin` / `admin`. These are for development only.
 
@@ -74,6 +76,24 @@ Expected health response:
 ```
 
 The event endpoint demonstrates the versioned Kafka-compatible envelope, including tenant, actor, correlation, causation, classification, and payload fields.
+
+## Database migrations
+
+With PostgreSQL running, install the project dependencies and run:
+
+```bash
+alembic upgrade head
+```
+
+The initial migration creates tenant-aware foundation tables, the organization placement field, organization units and closure storage, people and memberships, import tracking, audit records, the transactional outbox, and PostgreSQL RLS policies.
+
+To inspect generated SQL without applying it:
+
+```bash
+alembic upgrade head --sql
+```
+
+The current RLS policies use the transaction-local PostgreSQL setting `vasilia.tenant_id`. Application transactions must set that value before querying tenant-owned tables.
 
 ## Run checks without Docker
 
@@ -114,10 +134,10 @@ print("verification ok")
 PY
 ```
 
-When the test suite is added:
+Run all current unit tests:
 
 ```bash
-pytest
+python -m pytest tests/unit -q
 ```
 
 Linting is configured through Ruff:
@@ -180,15 +200,45 @@ python -m pip install -e '.[dev]'
 pytest tests/unit
 ```
 
-Integration tests require Docker Desktop and the Compose stack:
+Integration tests require Docker Desktop, the Compose stack, and a migrated database:
 
 ```bash
 docker compose up --build -d
-pytest tests/integration -m integration
+alembic upgrade head
+python -m pytest tests/integration -m integration -q
 docker compose down
 ```
 
-The integration suite is being expanded alongside PostgreSQL repositories, RLS policies, Keycloak authentication, MinIO storage, and the outbox publisher. A test run is only considered complete when both the unit and integration commands pass.
+The integration suite is being expanded alongside PostgreSQL repositories, RLS policies, Keycloak authentication, MinIO storage, and the outbox publisher. The current `tests/integration/README.md` documents the expected Docker-backed test environment; the suite is not yet complete. A release test run is only considered complete when both unit and integration commands pass.
+
+Run source compilation and linting:
+
+```bash
+python -m compileall -q services packages migrations
+ruff check .
+```
+
+## Authentication and authorization
+
+Keycloak is the local OIDC provider. The platform expects a validated JWT with at least:
+
+- `sub`: actor identity
+- `tenant_id`: tenant scope for tenant users
+- `role`: one of `Platform Admin`, `Organization Administrator`, `Department Manager`, or `Employee`
+- `scope`: optional space-separated scopes
+- `iss`: configured Keycloak issuer
+
+JWT claim mapping utilities are in `services/platform_api/auth.py`. Platform-admin flows and tenant-data flows must remain separate; a platform administrator cannot be used as a tenant-data actor. Production deployments should validate Keycloak JWKS public keys rather than use development signing secrets.
+
+## Tenant and organization placement
+
+Every request requires trusted tenant context. Each organization has an independent placement profile:
+
+- `SHARED_RLS`: shared PostgreSQL tables protected by RLS
+- `DEDICATED_SCHEMA`: organization-specific PostgreSQL schema
+- `DEDICATED_DATABASE`: organization-specific database
+
+The tenant catalog remains the control-plane boundary, while an organization placement resolver selects the data route. This permits one tenant to contain multiple organizations while isolating selected organizations when required.
 
 ## CSV-based onboarding
 
