@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.persistence.database import set_database_tenant
 from packages.persistence.models import AuditRecord, OutboxEvent
+from services.enterprise_foundation.capabilities import (
+    CreateOrganizationCapability,
+    CreateOrganizationInput,
+)
 
 from .capabilities import CapabilityContext, CapabilityResult
 
@@ -59,3 +63,20 @@ class CapabilityExecutionService:
         except Exception:
             await self.session.rollback()
             raise
+
+    async def create_organization(self, value: CreateOrganizationInput, context: CapabilityContext) -> CapabilityResult[dict[str, Any]]:
+        """Execute CreateOrganization and emit its authoritative domain event."""
+        capability = CreateOrganizationCapability(self.session)
+        return await self.execute(
+            capability_name=capability.name,
+            capability_version=capability.version,
+            context=context,
+            validate=lambda: capability.validate(value),
+            apply=lambda: self._apply_create_organization(capability, value, context),
+        )
+
+    async def _apply_create_organization(self, capability: CreateOrganizationCapability, value: CreateOrganizationInput, context: CapabilityContext) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """Apply organization creation and translate it into a domain event."""
+        organization = await capability.execute(value, context.tenant_id)
+        result = {"organization_id": str(organization.organization_id), "vasilia_org_number": organization.vasilia_org_number, "name": organization.name, "status": organization.status}
+        return result, [{"aggregate_type": "Organization", "aggregate_id": organization.organization_id, "event_type": "OrganizationCreated", "payload": result}]

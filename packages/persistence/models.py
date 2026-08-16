@@ -41,6 +41,18 @@ class Organization(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+class CapabilityIdempotency(Base):
+    """Tenant-scoped idempotency key preventing duplicate capability writes."""
+
+    __tablename__ = "capability_idempotency"
+    tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenant.tenant_id"), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    capability_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    execution_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class OutboxEvent(Base):
     """Durable event pending publication to the Kafka-compatible broker."""
     __tablename__ = "outbox_event"

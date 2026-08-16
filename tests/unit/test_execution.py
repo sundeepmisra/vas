@@ -63,3 +63,4 @@ def test_execution_writes_audit_and_outbox_after_apply() -> None:
     assert "AuditRecord" in session.operations
     assert "OutboxEvent" in session.operations
     assert session.operations[-1] == "commit"
+
