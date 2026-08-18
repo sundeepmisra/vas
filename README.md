@@ -53,7 +53,7 @@ docker compose down -v
 | --- | --- | --- |
 | Platform API | `http://localhost:8000` | Vasilia HTTP API |
 | OpenAPI UI | `http://localhost:8000/docs` | Interactive API documentation |
-| PostgreSQL | `localhost:5432` | Transactional database |
+| PostgreSQL | `localhost:55432` | Docker transactional database (the Compose container also exposes container port 5432) |
 | Redpanda Kafka endpoint | `localhost:9092` | Local Kafka-compatible broker |
 | Redis | `localhost:6379` | Cache/runtime support |
 | Keycloak | `http://localhost:8080` | Local OIDC identity provider |
@@ -93,6 +93,8 @@ With PostgreSQL running, install the project dependencies and run:
 ```bash
 alembic upgrade head
 ```
+
+The migration creates the `vasilia_app` non-superuser role for runtime connections and RLS enforcement. The development password is `vasilia-app-development-only`; production deployments must replace it through secret management.
 
 The initial migration creates tenant-aware foundation tables, the organization placement field, organization units and closure storage, people and memberships, import tracking, audit records, the transactional outbox, and PostgreSQL RLS policies.
 
@@ -220,7 +222,7 @@ python -m pytest tests/integration -m integration -q
 docker compose down
 ```
 
-The integration suite is being expanded alongside PostgreSQL repositories, RLS policies, Keycloak authentication, MinIO storage, and the outbox publisher. The current `tests/integration/README.md` documents the expected Docker-backed test environment; the suite is not yet complete. A release test run is only considered complete when both unit and integration commands pass.
+The current PostgreSQL integration suite verifies migration-created tables and cross-tenant RLS isolation. It uses the Docker database on port `55432` so it does not conflict with a native PostgreSQL service on macOS port `5432`. The suite will expand alongside Keycloak authentication, MinIO storage, repositories, and the outbox publisher.
 
 Run source compilation and linting:
 

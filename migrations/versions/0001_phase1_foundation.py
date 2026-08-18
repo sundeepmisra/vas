@@ -10,7 +10,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create authoritative tables, outbox, audit, imports, and RLS policies."""
-    op.execute("""
+    statements = """
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
     CREATE TABLE tenant (tenant_id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'PROVISIONING', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE TABLE organization (organization_id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL REFERENCES tenant(tenant_id), vasilia_org_number TEXT NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'ONBOARDING', placement TEXT NOT NULL DEFAULT 'SHARED_RLS' CHECK (placement IN ('SHARED_RLS','DEDICATED_SCHEMA','DEDICATED_DATABASE')), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), version INTEGER NOT NULL DEFAULT 1, UNIQUE(tenant_id, vasilia_org_number), UNIQUE(tenant_id, name));
@@ -26,12 +26,14 @@ def upgrade() -> None:
     CREATE TABLE organization_import (import_id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL REFERENCES tenant(tenant_id), organization_id UUID NOT NULL REFERENCES organization(organization_id), import_mode TEXT NOT NULL, import_execution_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'PENDING', file_name TEXT, object_key TEXT, row_count INTEGER, applied_count INTEGER NOT NULL DEFAULT 0, failed_count INTEGER NOT NULL DEFAULT 0, column_mapping JSONB, ai_mapping_confidence JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE TABLE organization_import_issue (issue_id UUID PRIMARY KEY DEFAULT gen_random_uuid(), import_id UUID NOT NULL REFERENCES organization_import(import_id), row_number INTEGER, column_name TEXT, issue_type TEXT NOT NULL, severity TEXT NOT NULL, message TEXT NOT NULL, raw_value TEXT, suggested_fix TEXT, resolution_status TEXT NOT NULL DEFAULT 'OPEN');
     ALTER TABLE organization ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE organization FORCE ROW LEVEL SECURITY;
     ALTER TABLE organization_unit ENABLE ROW LEVEL SECURITY;
     ALTER TABLE person ENABLE ROW LEVEL SECURITY;
     ALTER TABLE organization_membership ENABLE ROW LEVEL SECURITY;
     ALTER TABLE outbox_event ENABLE ROW LEVEL SECURITY;
     ALTER TABLE audit_record ENABLE ROW LEVEL SECURITY;
     ALTER TABLE organization_import ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE organization_import FORCE ROW LEVEL SECURITY;
     CREATE POLICY organization_tenant_isolation ON organization USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
     CREATE POLICY unit_tenant_isolation ON organization_unit USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
     CREATE POLICY person_tenant_isolation ON person USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
@@ -39,7 +41,10 @@ def upgrade() -> None:
     CREATE POLICY outbox_tenant_isolation ON outbox_event USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
     CREATE POLICY audit_tenant_isolation ON audit_record USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
     CREATE POLICY import_tenant_isolation ON organization_import USING (tenant_id = NULLIF(current_setting('vasilia.tenant_id', true), '')::uuid);
-    """)
+    """
+    for statement in statements.split(";"):
+        if statement.strip():
+            op.execute(statement)
 
 
 def downgrade() -> None:
